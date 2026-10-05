@@ -198,13 +198,7 @@ impl FormulaExecutor {
 			FormulaAstInner::Range(mut cells) => {
 				if cells.len() > 1 {
 					let minimum = cells.iter().min_by(|a, b|{
-						if a.1 < b.1 {
-							std::cmp::Ordering::Less
-						} else if a.1 > b.1 {
-							std::cmp::Ordering::Greater
-						} else {
-							std::cmp::Ordering::Equal
-						}
+						a.1.cmp(&b.1)
 					});
 					if minimum.is_none() {
 						return Err(Box::new(FormulaError::BoundsError("No minimum in a range with more than 1 cell".to_string())))
