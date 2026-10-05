@@ -69,7 +69,7 @@ impl Cell {
 	/// Create empty
 	pub fn new() -> Self {
 		Self { 
-			content: Content::Str("".to_string()),
+			content: Content::Number(0.0),
 			display_content: "".to_string(),
 			properties: Properties { bgcolor: Color::from_tuple((0,0,0)), fgcolor: Color::from_tuple((0,0,0)), fontsize: 0, font: "".to_string() }
 		}

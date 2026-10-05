@@ -110,7 +110,7 @@ fn op_wrapper(cnt1: Content, cnt2: Content, exec: &FormulaExecutor, container: &
 		let eval2 = exec.eval(&eval2, container)?;
 		op_wrapper(cnt1, eval2.to_content()?, exec, container, op)
 	} else {
-		Err(Box::new(TypeError("Can't operate on ranges or on different types".to_string())))
+		Err(Box::new(TypeError(format!("Can't operate on ranges or on different types: {:?} and {:?}", cnt1, cnt2))))
 	}
 }
 
@@ -713,5 +713,16 @@ mod test {
 
 		let ast = q.parse("={0,0,0}:{0,0,2}+{0,1,0}:{0,1,1}").unwrap();
 		assert!(r.execute(ast, &vec![0,0,2], &m).is_err());
+	}
+
+	#[test]
+	fn test_exec_non_recursive() {
+		let m = MapContainer::new(3);
+		let q = parser::FormulaParser::new();
+		let ast = q.parse("={0,0,1}+1").unwrap();
+		let r = FormulaExecutor::new();
+		r.execute(ast, &vec![0,0,0], &m).unwrap();
+		let ast = q.parse("={0,0,0}+1").unwrap();
+		r.execute(ast, &vec![0,0,1], &m).unwrap();
 	}
 }
