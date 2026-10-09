@@ -52,7 +52,9 @@ pub trait Container : Iterator<Item = (Vec<usize>, Cell)> {
 	/// Gets cell at position p
 	fn get_cell_at(&self, p: &PositionN) -> Result<Option<Cell>, RetError>;
 	/// Gets cells at positions p
-	fn get_cells_at(&self, p: &Vec<PositionN>) -> Result<Vec<Cell>, RetError>;
+	fn get_cells_at(&self, p: &[PositionN]) -> Result<Vec<Cell>, RetError>;
+	/// Gets whether a cell exists or not
+	fn is_empty_cell(&self, p: &PositionN) -> bool;
 	/// Sets cell at position p
 	fn set_cell_at(&self, p: &PositionN, nc: Cell) -> Result<(), RetError>;
 	/// Sets number of axes. All current data is appended the extra axes

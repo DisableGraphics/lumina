@@ -23,12 +23,14 @@ pub enum FormulaError {
 	ContainerError(ContainerError),
 	/// Overlaps with another range
 	OverlapError(String),
-	/// Incorrect evaluation
+	/// Evaluation returned a partial result
 	WrongEvaluation(String),
 	/// Non-existent macro
 	MacroDoesNotExist(String),
 	/// Length is incorrect
-	LengthError(String)
+	LengthError(String),
+	/// Runtime error
+	RuntimeError(String)
 }
 
 impl Error for FormulaError{}
@@ -43,6 +45,7 @@ impl std::fmt::Display for FormulaError {
 			Self::WrongEvaluation(str) => str,
 			Self::MacroDoesNotExist(str) => str,
 			Self::LengthError(str) => str,
+			Self::RuntimeError(str) => str,
 		};
 		write!(f, "{}", s)
 	}
@@ -52,6 +55,10 @@ impl From<ContainerError> for FormulaError {
 	fn from(value: ContainerError) -> Self {
 		Self::ContainerError(value)
 	}
+}
+
+fn vec_sub(a: &Vec<usize>, b: &Vec<usize>) -> Vec<usize> {
+	a.iter().zip(b).map(|(a, b)| *a - *b).collect()
 }
 
 /// Formula Abstract Syntax Tree

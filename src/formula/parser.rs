@@ -6,7 +6,7 @@ pub struct FormulaParser {
 	
 }
 
-fn expand(origin: &Vec<usize>, dest: &Vec<usize>) -> Vec<Vec<usize>> {
+fn expand(origin: &[usize], dest: &[usize]) -> Vec<Vec<usize>> {
 	let mut result = vec![vec![]];
     
     for (o, d) in origin.iter().zip(dest.iter()) {
@@ -65,7 +65,15 @@ fn parser<'src>() -> impl Parser<'src, &'src str, FormulaAst, extra::Err<Rich<'s
 		));
 		
 	
-		let string = none_of('"')
+		let string = choice((
+				just('\\')
+					.ignore_then(just('"'))
+					.to('"'),
+				just('"')
+					.ignore_then(just('"'))
+					.to('"'),
+				none_of('"'),
+			))
 			.repeated()
 			.collect::<String>()
 			.delimited_by(just('"'), just('"'))

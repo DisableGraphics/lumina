@@ -39,7 +39,7 @@ impl Iterator for MapContainer {
 	}
 }
 
-impl<'a> Container for MapContainer {
+impl Container for MapContainer {
 	fn insert(&self, p: &PositionN, c: Cell) -> Result<(), RetError> {
 		if p.len() != self.naxes {
 			return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when inserting: {} (requested) is not {} (actual)", p.len(), self.naxes))));
@@ -67,7 +67,7 @@ impl<'a> Container for MapContainer {
 		Ok(reader.cont.get(p).cloned())
 	}
 
-	fn get_cells_at(&self, p: &Vec<PositionN>) -> Result<Vec<Cell>, RetError> {
+	fn get_cells_at(&self, p: &[PositionN]) -> Result<Vec<Cell>, RetError> {
 		let reader = self.inner.read().unwrap();
 
 		let mut ret = vec![];
@@ -148,11 +148,11 @@ impl<'a> Container for MapContainer {
 		let reader = self.inner.read().unwrap();
 		let mut ret = vec![];
 		'life: for i in &reader.cont {
-			for j in 0..i.0.len() {
-				match p[j] {
+			for (j, pj) in p.iter().enumerate().take(i.0.len()) {
+				match pj {
 					super::AnyPosition::Any => {},
 					super::AnyPosition::Position(us) => {
-						match us == i.0[j] {
+						match *us == i.0[j] {
 							true => {},
 							false => { continue 'life }
 						}
@@ -167,6 +167,11 @@ impl<'a> Container for MapContainer {
 	fn get_n_cells(&self) -> usize {
 		let reader = self.inner.read().unwrap();
 		reader.cont.len()
+	}
+	
+	fn is_empty_cell(&self, p: &PositionN) -> bool {
+		let reader = self.inner.read().unwrap();
+		!reader.cont.contains_key(p)
 	}
 }
 
@@ -194,13 +199,13 @@ impl Serialize for MapContainer {
 
 #[cfg(test)]
 mod test {
-	use crate::{Cell, Color, container::{AnyPosition, Container, mapcontainer::MapContainer}};
+	use crate::{Cell, container::{AnyPosition, Container, mapcontainer::MapContainer}};
 
 	#[test]
 	fn insertion() {
 		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		assert!(c.insert(&vec![1,2,3], cell).is_ok());
 	}
 
@@ -208,7 +213,7 @@ mod test {
 	fn wrong_coords_insert() {
 		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		assert!(c.insert(&vec![1,2], cell).is_err());
 	}
 
@@ -216,7 +221,7 @@ mod test {
 	fn getting_at() {
 		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		let checkcell = cell.clone();
 		assert!(c.insert(&vec![1,2,3], cell).is_ok());
 		assert_eq!(c.get_cell_at(&vec![1,2,3]).unwrap().unwrap(), checkcell);
@@ -226,7 +231,7 @@ mod test {
 	fn wrong_coords_get() {
 		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		assert!(c.insert(&vec![1,2,3], cell).is_ok());
 		assert!(c.get_cell_at(&vec![1,2]).is_err());
 	}
@@ -235,7 +240,7 @@ mod test {
 	fn setting_at() {
 		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		let mut checkcell = cell.clone();
 		assert!(c.insert(&vec![1,2,3], cell).is_ok());
 		assert_eq!(c.get_cell_at(&vec![1,2,3]).unwrap().unwrap(), checkcell);
@@ -251,7 +256,7 @@ mod test {
 	fn wrong_coords_set() {
 		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		let dupe = cell.clone();
 		assert!(c.insert(&vec![1,2,3], cell).is_ok());
 		assert!(c.set_cell_at(&vec![1,2], dupe).is_err());
@@ -261,7 +266,7 @@ mod test {
 	fn removing() {
 		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		assert!(c.insert(&vec![1,2,3], cell).is_ok());
 		assert!(c.remove(&vec![1,2,3]).is_ok());
 		assert!(c.get_cell_at(&vec![1,2,3]).unwrap().is_none());
@@ -271,7 +276,7 @@ mod test {
 	fn wrong_coords_remove() {
 		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		let dupe = cell.clone();
 		assert!(c.insert(&vec![1,2,3], cell).is_ok());
 		assert!(c.remove(&vec![1,2]).is_err());
@@ -281,7 +286,6 @@ mod test {
 	#[test]
 	fn new_axes() {
 		let mut c = MapContainer::new(3);
-
 		assert!(c.set_axes(1).is_ok());
 		assert_eq!(c.get_axes(), 1);
 	}
@@ -290,7 +294,7 @@ mod test {
 	fn red_axes_content() {
 		let mut c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		let dupe = cell.clone();
 		assert!(c.insert(&vec![1,0,0], cell).is_ok());
 
@@ -304,7 +308,7 @@ mod test {
 	fn red_axes_retain() {
 		let mut c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		let dupe = cell.clone();
 		assert!(c.insert(&vec![1,1,0], cell).is_ok());
 
@@ -319,7 +323,7 @@ mod test {
 	fn more_axes_content() {
 		let mut c = MapContainer::new(3);
 		let mut cell = Cell::default();
-		cell.properties.bgcolor = Color::from_tuple((2,3,4));
+		cell.properties.inner = "a".to_string();
 		let dupe = cell.clone();
 		assert!(c.insert(&vec![1,0,0], cell).is_ok());
 
@@ -336,8 +340,8 @@ mod test {
 			for j in 0..10 {
 				for k in 0..10 {
 					let mut cell = Cell::default();
-					cell.properties.bgcolor = Color::from_tuple((i*10,j*10,k*10));
-					assert!(c.insert(&vec![i.into(), j.into(), k.into()], cell).is_ok());
+					cell.properties.inner = format!("{}-{}-{}", i*10, j*10, k*10).to_string();
+					assert!(c.insert(&vec![i as usize, j as usize, k as usize], cell).is_ok());
 				}
 			}
 		}
@@ -345,9 +349,11 @@ mod test {
 		let results = c.get_cells_at_axis(&[AnyPosition::Any, AnyPosition::Position(3), AnyPosition::Position(3)]).unwrap();
 
 		for r in results {
-			assert!(r.properties.bgcolor.r < 101);
-			assert!(r.properties.bgcolor.g == 30);
-			assert!(r.properties.bgcolor.b == 30);
+			eprintln!("{}", r.properties.inner);
+			let sep: Vec<&str> = r.properties.inner.split('-').collect();
+			assert!(sep[0].parse::<usize>().unwrap() < 101);
+			assert!(sep[1].parse::<usize>().unwrap() == 30);
+			assert!(sep[2].parse::<usize>().unwrap() == 30);
 		}
 	}
 
@@ -358,8 +364,8 @@ mod test {
 			for j in 0..10 {
 				for k in 0..10 {
 					let mut cell = Cell::default();
-					cell.properties.bgcolor = Color::from_tuple((i*10,j*10,k*10));
-					assert!(c.insert(&vec![i.into(), j.into(), k.into()], cell).is_ok());
+					cell.properties.inner = format!("{}-{}-{}", i*10, j*10, k*10).to_string();
+					assert!(c.insert(&vec![i as usize, j as usize, k as usize], cell).is_ok());
 				}
 			}
 		}
@@ -367,9 +373,10 @@ mod test {
 		let results = c.get_cells_at_axis(&[AnyPosition::Any, AnyPosition::Any, AnyPosition::Position(3)]).unwrap();
 
 		for r in results {
-			assert!(r.properties.bgcolor.r < 101);
-			assert!(r.properties.bgcolor.g < 101);
-			assert!(r.properties.bgcolor.b == 30);
+			let sep: Vec<&str> = r.properties.inner.split('-').collect();
+			assert!(sep[0].parse::<usize>().unwrap() < 101);
+			assert!(sep[1].parse::<usize>().unwrap() < 101);
+			assert!(sep[2].parse::<usize>().unwrap() == 30);
 		}
 	}
 }

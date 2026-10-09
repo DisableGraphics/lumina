@@ -14,7 +14,7 @@ impl ContainerBuilder {
 	}
 
 	/// Creates a container from a file
-	pub fn from_file<'a, P: AsRef<Path>>(self, path: P) -> Result<Box<dyn Container>, Box<dyn Error>> {
+	pub fn file<P: AsRef<Path>>(self, path: P) -> Result<Box<dyn Container>, Box<dyn Error>> {
 		let mut f = File::open(path)?;
 		let mut vec = Vec::new();
 		f.read_to_end(&mut vec)?;
@@ -23,19 +23,19 @@ impl ContainerBuilder {
 	}
 
 	/// Creates a container from a reader over binary data
-	pub fn from_reader<'a>(self, reader: &mut dyn Read) -> Result<Box<dyn Container>, Box<dyn Error>> {
+	pub fn reader(self, reader: &mut dyn Read) -> Result<Box<dyn Container>, Box<dyn Error>> {
 		let mut vec = Vec::new();
 		reader.read_to_end(&mut vec)?;
 		let c: MapContainer = postcard::from_bytes(&vec)?;
 		Ok(Box::new(c))
 	}
 	/// Creates an empty container
-	pub fn empty<'a>(self, axes: usize) -> Result<Box<dyn Container>, Box<dyn Error>> {
+	pub fn empty(self, axes: usize) -> Result<Box<dyn Container>, Box<dyn Error>> {
 		let c: MapContainer = MapContainer::new(axes);
 		Ok(Box::new(c))
 	}
 	#[allow(dead_code)]
-	fn from_file_inner<'a, P: AsRef<Path>>(self, path: P) -> Result<MapContainer, Box<dyn Error>> {
+	fn file_inner<P: AsRef<Path>>(self, path: P) -> Result<MapContainer, Box<dyn Error>> {
 		let mut f = File::open(path)?;
 		let mut vec = Vec::new();
 		f.read_to_end(&mut vec)?;
@@ -43,7 +43,7 @@ impl ContainerBuilder {
 		Ok(c)
 	}
 	#[allow(dead_code)]
-	fn empty_inner<'a>(self, axes: usize) -> Result<MapContainer, Box<dyn Error>> {
+	fn empty_inner(self, axes: usize) -> Result<MapContainer, Box<dyn Error>> {
 		let c: MapContainer = MapContainer::new(axes);
 		Ok(c)
 	}
@@ -76,7 +76,7 @@ mod test {
 	#[test]
 	fn load() {
 		create_if_not_available().unwrap();
-		assert!(ContainerBuilder::new().from_file("tests/data/src.lum").is_ok());
+		assert!(ContainerBuilder::new().file("tests/data/src.lum").is_ok());
 	}
 
 	fn create_if_not_available2() -> Result<(), Box<dyn Error>> {
@@ -94,7 +94,7 @@ mod test {
 	#[test]
 	fn load2() {
 		create_if_not_available2().unwrap();
-		let p = ContainerBuilder::new().from_file("tests/data/src2.lum").unwrap();
+		let p = ContainerBuilder::new().file("tests/data/src2.lum").unwrap();
 		assert_eq!(p.get_cell_at(&vec![1,2,3]).unwrap().unwrap(), Cell::default())
 	}
 
@@ -119,7 +119,7 @@ mod test {
 	#[test]
 	fn load3() {
 		create_if_not_available3().unwrap();
-		let p = ContainerBuilder::new().from_file("tests/data/src3.lum").unwrap();
+		let p = ContainerBuilder::new().file("tests/data/src3.lum").unwrap();
 		assert_eq!(p.get_n_cells(), 100*100*100);
 	}
 }

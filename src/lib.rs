@@ -31,10 +31,7 @@ impl Color {
 /// Properties that a cell may have
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, PartialOrd)]
 pub struct Properties {
-	bgcolor: Color,
-	fgcolor: Color,
-	fontsize: usize,
-	font: String
+	inner: String
 }
 
 /// Position
@@ -48,7 +45,7 @@ pub enum Content {
 	/// Contains a number
 	Number(f64),
 	/// Contains a string
-	Str(String)
+	Str(String),
 }
 
 /// A basic cell
@@ -71,7 +68,7 @@ impl Cell {
 		Self { 
 			content: Content::Number(0.0),
 			display_content: "".to_string(),
-			properties: Properties { bgcolor: Color::from_tuple((0,0,0)), fgcolor: Color::from_tuple((0,0,0)), fontsize: 0, font: "".to_string() }
+			properties: Properties { inner: Default::default() }
 		}
 	}
 }

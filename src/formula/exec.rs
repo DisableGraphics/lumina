@@ -1,9 +1,15 @@
 use std::{collections::HashMap, error::Error};
 
-use crate::{Cell, Content, PositionN, container::Container, formula::{FormulaAst, FormulaError::{self, BoundsError, LengthError, MacroDoesNotExist, TypeError}, builtins::now::now}};
+use crate::{Cell, Content, PositionN, container::Container, formula::{FormulaAst, FormulaError::{self, BoundsError, LengthError, MacroDoesNotExist, TypeError}, builtins::{abs::abs, and::and, average::average, averageif::averageif, ceiling::ceiling, count::count, counta::counta, countblank::countblank, countif::countif, error::error, floor::floor, iferror::iferror, iff::iff, index::index, int::int, isblank::isblank, iserror::iserror, isnumber::isnumber, istext::istext, left::left, len::len, lower::lower, max::max, mid::mid, min::min, mtch::mtch, not::not, now::now, or::or, power::power, product::product, right::right, round::round, rounddown::rounddown, roundup::roundup, sort::sort, sqrt::sqrt, substitute::substitute, sum::sum, sumif::sumif, tonumber::tonumber, torange::torange, tostring::tostring, trim::trim, unique::unique, upper::upper, xlookup::xlookup}}};
+use crate::formula::builtins::concat::concat;
 
 /// Public definition of the type that all formulas must implement
-pub type FormulaFunction = fn(Vec<FormulaAstInner>) -> Result<FormulaAstInner, Box<dyn Error>>;
+pub type FormulaFunction = fn(Vec<FormulaAstInner>, &dyn Container, &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>>;
+
+/// If a display_content starts with this the cell contains an error.
+pub const ERROR_START: &str = "#ERROR#";
+
+type OpFn = fn(Content, Content, exec: &FormulaExecutor, container: &dyn Container) -> Result<Content, Box<dyn Error>>;
 
 /// Executes compiled formulas
 pub struct FormulaExecutor {
@@ -11,7 +17,7 @@ pub struct FormulaExecutor {
 }
 
 /// Inner formula AST
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FormulaAstInner {
 	/// Range
 	Range(Vec<(Cell, PositionN)>),
@@ -22,7 +28,7 @@ pub enum FormulaAstInner {
 }
 
 impl FormulaAstInner {
-	fn to_content(self) -> Result<Content, FormulaError> {
+	fn content(self) -> Result<Content, FormulaError> {
 		match self {
 			Self::Range(_) => Err(LengthError("Can't make a range into a cell".to_string())),
 			Self::Number(i) => Ok(Content::Number(i)),
@@ -44,10 +50,10 @@ fn inner_from_ast(f: &FormulaAst, container: &dyn Container) -> Result<FormulaAs
 }
 
 fn negate_range(mut src: Vec<(Cell, PositionN)>, exec: &FormulaExecutor, container: &dyn Container) -> Result<FormulaAstInner, Box<dyn Error>> {
-	for i in 0..src.len() {
-		let p = match &src[i].0.content {
+	for i in &mut src {
+		let p = match &i.0.content {
 			crate::Content::Formula(formula_ast) => {
-				let r = exec.eval(formula_ast, container)?;
+				let r = exec._eval(formula_ast, container)?;
 				match r {
 					FormulaAstInner::Range(_) => return Err(Box::new(FormulaError::TypeError("Cannot negate a range within a range".to_string()))),
 					FormulaAstInner::Number(i) => crate::Content::Number(-i),
@@ -58,12 +64,12 @@ fn negate_range(mut src: Vec<(Cell, PositionN)>, exec: &FormulaExecutor, contain
 			crate::Content::Str(_) => return Err(Box::new(FormulaError::TypeError("Cannot negate a string".to_string()))),
 		};
 
-		src[i].0.content = p;
+		i.0.content = p;
 	}
 	Ok(FormulaAstInner::Range(src))
 }
 
-fn op_on_ranges(mut op1: Vec<(Cell, PositionN)>, mut op2: Vec<(Cell, PositionN)>, op: fn(Content, Content, exec: &FormulaExecutor, container: &dyn Container) -> Result<Content, Box<dyn Error>>, exec: &FormulaExecutor, container: &dyn Container) -> Result<FormulaAstInner, Box<dyn Error>> {
+fn op_on_ranges(mut op1: Vec<(Cell, PositionN)>, mut op2: Vec<(Cell, PositionN)>, op: OpFn, exec: &FormulaExecutor, container: &dyn Container) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if op1.len() != op2.len() {
 		return Err(Box::new(LengthError("Ranges do not match in length".to_string())));
 	}
@@ -76,16 +82,16 @@ fn op_on_ranges(mut op1: Vec<(Cell, PositionN)>, mut op2: Vec<(Cell, PositionN)>
 	Ok(FormulaAstInner::Range(op1))
 }
 
-fn op_on_range_num(mut op1: Vec<(Cell, PositionN)>, num: f64, op: fn(Content, Content, exec: &FormulaExecutor, container: &dyn Container) -> Result<Content, Box<dyn Error>>, exec: &FormulaExecutor, container: &dyn Container) -> Result<FormulaAstInner, Box<dyn Error>> {
-	for i in 0..op1.len() {
-		let cnt = std::mem::replace(&mut op1[i].0.content, Content::Number(0.0));
-		op1[i].0.content = op(cnt, Content::Number(num), exec, container)?;
+fn op_on_range_num(mut op1: Vec<(Cell, PositionN)>, num: f64, op: OpFn, exec: &FormulaExecutor, container: &dyn Container) -> Result<FormulaAstInner, Box<dyn Error>> {
+	for i in &mut op1 {
+		let cnt = std::mem::replace(&mut i.0.content, Content::Number(0.0));
+		i.0.content = op(cnt, Content::Number(num), exec, container)?;
 	}
 
 	Ok(FormulaAstInner::Range(op1))
 }
 
-fn op_on_range_num_r(mut op1: Vec<(Cell, PositionN)>, num: f64, op: fn(Content, Content, exec: &FormulaExecutor, container: &dyn Container) -> Result<Content, Box<dyn Error>>, exec: &FormulaExecutor, container: &dyn Container) -> Result<FormulaAstInner, Box<dyn Error>> {
+fn op_on_range_num_r(mut op1: Vec<(Cell, PositionN)>, num: f64, op: OpFn, exec: &FormulaExecutor, container: &dyn Container) -> Result<FormulaAstInner, Box<dyn Error>> {
 	for i in &mut op1 {
 		let cnt = std::mem::replace(&mut i.0.content, Content::Number(0.0));
 		i.0.content = op(Content::Number(num), cnt, exec, container)?;
@@ -100,15 +106,15 @@ fn op_wrapper(cnt1: Content, cnt2: Content, exec: &FormulaExecutor, container: &
 	} else if let Content::Str(_) = cnt1 && let Content::Str(_) = cnt2 {
 		Ok(op(cnt2, cnt1))
 	} else if let Content::Formula(form1) = &cnt1 && let Content::Formula(form2) = cnt2 {
-		let eval1 = exec.eval(form1, container)?;
-		let eval2 = exec.eval(&form2, container)?;
-		op_wrapper(eval1.to_content()?, eval2.to_content()?, exec, container, op)
+		let eval1 = exec._eval(form1, container)?;
+		let eval2 = exec._eval(&form2, container)?;
+		op_wrapper(eval1.content()?, eval2.content()?, exec, container, op)
 	} else if let Content::Formula(form1) = cnt1 {
-		let eval1 = exec.eval(&form1, container)?;
-		op_wrapper(eval1.to_content()?, cnt2, exec, container, op)
+		let eval1 = exec._eval(&form1, container)?;
+		op_wrapper(eval1.content()?, cnt2, exec, container, op)
 	} else if let Content::Formula(eval2) = cnt2 {
-		let eval2 = exec.eval(&eval2, container)?;
-		op_wrapper(cnt1, eval2.to_content()?, exec, container, op)
+		let eval2 = exec._eval(&eval2, container)?;
+		op_wrapper(cnt1, eval2.content()?, exec, container, op)
 	} else {
 		Err(Box::new(TypeError(format!("Can't operate on ranges or on different types: {:?} and {:?}", cnt1, cnt2))))
 	}
@@ -180,7 +186,54 @@ impl FormulaExecutor {
 		Self { 
 			fn_table: HashMap::from(
 				[
-					("now".to_string(), now as FormulaFunction)
+					("now".to_string(), now as FormulaFunction),
+					("countif".to_string(), countif as FormulaFunction),
+					("sumif".to_string(), sumif as FormulaFunction),
+					("averageif".to_string(), averageif as FormulaFunction),
+					("sum".to_string(), sum as FormulaFunction),
+					("min".to_string(), min as FormulaFunction),
+					("max".to_string(), max as FormulaFunction),
+					("average".to_string(), average as FormulaFunction),
+					("product".to_string(), product as FormulaFunction),
+					("count".to_string(), count as FormulaFunction),
+					("counta".to_string(), counta as FormulaFunction),
+					("countblank".to_string(), countblank as FormulaFunction),
+					("abs".to_string(), abs as FormulaFunction),
+					("ceiling".to_string(), ceiling as FormulaFunction),
+					("floor".to_string(), floor as FormulaFunction),
+					("round".to_string(), round as FormulaFunction),
+					("roundup".to_string(), roundup as FormulaFunction),
+					("rounddown".to_string(), rounddown as FormulaFunction),
+					("int".to_string(), int as FormulaFunction),
+					("power".to_string(), power as FormulaFunction),
+					("sqrt".to_string(), sqrt as FormulaFunction),
+					("len".to_string(), len as FormulaFunction),
+					("upper".to_string(), upper as FormulaFunction),
+					("lower".to_string(), lower as FormulaFunction),
+					("left".to_string(), left as FormulaFunction),
+					("right".to_string(), right as FormulaFunction),
+					("mid".to_string(), mid as FormulaFunction),
+					("trim".to_string(), trim as FormulaFunction),
+					("substitute".to_string(), substitute as FormulaFunction),
+					("concat".to_string(), concat as FormulaFunction),
+					("isblank".to_string(), isblank as FormulaFunction),
+					("isnumber".to_string(), isnumber as FormulaFunction),
+					("istext".to_string(), istext as FormulaFunction),
+					("iserror".to_string(), iserror as FormulaFunction),
+					("error".to_string(), error as FormulaFunction),
+					("tonumber".to_string(), tonumber as FormulaFunction),
+					("tostring".to_string(), tostring as FormulaFunction),
+					("torange".to_string(), torange as FormulaFunction),
+					("sort".to_string(), sort as FormulaFunction),
+					("unique".to_string(), unique as FormulaFunction),
+					("if".to_string(), iff as FormulaFunction),
+					("iferror".to_string(), iferror as FormulaFunction),
+					("and".to_string(), and as FormulaFunction),
+					("or".to_string(), or as FormulaFunction),
+					("not".to_string(), not as FormulaFunction),
+					("xlookup".to_string(), xlookup as FormulaFunction),
+					("index".to_string(), index as FormulaFunction),
+					("match".to_string(), mtch as FormulaFunction),
 				]
 			) 
 		}
@@ -193,7 +246,15 @@ impl FormulaExecutor {
 
 	/// Executes a compiled formula in the position position over the container container
 	pub fn execute(&self, f: FormulaAst, position: &PositionN, container: &dyn Container) -> Result<(), Box<dyn Error>> {
-		let eval = self.eval(&f, container)?;
+		let eval = match self._eval(&f, container) {
+			Ok(eval) => eval,
+			Err(e) => {
+				let mut cell = container.get_cell_at(position)?.unwrap_or_default();
+				cell.display_content = format!("{}{}", ERROR_START, e);
+				container.set_cell_at(position, cell)?;
+				return Err(e)
+			}
+		};
 		match eval {
 			FormulaAstInner::Range(mut cells) => {
 				if cells.len() > 1 {
@@ -217,10 +278,7 @@ impl FormulaExecutor {
 								cell
 							},
 							None => {
-								let mut cell = Cell::default();
-								cell.display_content = i.0.display_content;
-								cell.content = i.0.content;
-								cell
+								Cell { display_content: i.0.display_content, content: i.0.content, ..Default::default() }
 							}
 						};
 						container.set_cell_at(&destcellpos, cell)?;
@@ -238,10 +296,7 @@ impl FormulaExecutor {
 							cell
 						},
 						None => {
-							let mut cell = Cell::default();
-							cell.display_content = i.0.display_content;
-							cell.content = i.0.content;
-							cell
+							Cell { display_content: i.0.display_content, content: i.0.content, ..Default::default() }
 						}
 					};
 					container.set_cell_at(position, cell)?;
@@ -262,10 +317,7 @@ impl FormulaExecutor {
 						cell
 					},
 					None => {
-						let mut cell = Cell::default();
-						cell.display_content = i.to_string();
-						cell.content = Content::Number(i);
-						cell
+						Cell { display_content: i.to_string(), content: Content::Number(i), ..Default::default() }
 					}
 				};
 				container.set_cell_at(position, cell)?;
@@ -283,10 +335,7 @@ impl FormulaExecutor {
 						cell
 					},
 					None => {
-						let mut cell = Cell::default();
-						cell.display_content = i.clone();
-						cell.content = Content::Str(i);
-						cell
+						Cell { display_content: i.clone(), content: Content::Str(i), ..Default::default() }
 					}
 				};
 				container.set_cell_at(position, cell)?;
@@ -294,11 +343,11 @@ impl FormulaExecutor {
 		}
 		Ok(())
 	}
-
-	fn eval(&self, f: &FormulaAst, container: &dyn Container) -> Result<FormulaAstInner, Box<dyn Error>> {
+	/// Evaluates a FomulaAst. Don't call this function, it's public so that the builtins can call it.
+	pub fn _eval(&self, f: &FormulaAst, container: &dyn Container) -> Result<FormulaAstInner, Box<dyn Error>> {
 		match f {
 			FormulaAst::Neg(formula_ast) => {
-				let n1 = self.eval(formula_ast, container)?;
+				let n1 = self._eval(formula_ast, container)?;
 				if let FormulaAstInner::Number(n) = n1 {
 					Ok(FormulaAstInner::Number(-n))
 				} else if let FormulaAstInner::Range(range) = n1 {
@@ -308,8 +357,8 @@ impl FormulaExecutor {
 				}
 			},
 			FormulaAst::Add(formula_ast, formula_ast1) => {
-				let n1 = self.eval(formula_ast, container)?;
-				let n2 = self.eval(formula_ast1, container)?;
+				let n1 = self._eval(formula_ast, container)?;
+				let n2 = self._eval(formula_ast1, container)?;
 
 				if let FormulaAstInner::Number(n1) = n1 {
 					if let FormulaAstInner::Number(n2) = n2 {
@@ -344,8 +393,8 @@ impl FormulaExecutor {
 				}
 			},
 			FormulaAst::Sub(formula_ast, formula_ast1) => {
-				let n1 = self.eval(formula_ast, container)?;
-				let n2 = self.eval(formula_ast1, container)?;
+				let n1 = self._eval(formula_ast, container)?;
+				let n2 = self._eval(formula_ast1, container)?;
 
 				if let FormulaAstInner::Number(n1) = n1 {
 					if let FormulaAstInner::Number(n2) = n2 {
@@ -374,8 +423,8 @@ impl FormulaExecutor {
 				}
 			},
 			FormulaAst::Mul(formula_ast, formula_ast1) => {
-				let n1 = self.eval(formula_ast, container)?;
-				let n2 = self.eval(formula_ast1, container)?;
+				let n1 = self._eval(formula_ast, container)?;
+				let n2 = self._eval(formula_ast1, container)?;
 
 				if let FormulaAstInner::Number(n1) = n1 {
 					if let FormulaAstInner::Number(n2) = n2 {
@@ -404,8 +453,8 @@ impl FormulaExecutor {
 				}
 			},
 			FormulaAst::Div(formula_ast, formula_ast1) => {
-				let n1 = self.eval(formula_ast, container)?;
-				let n2 = self.eval(formula_ast1, container)?;
+				let n1 = self._eval(formula_ast, container)?;
+				let n2 = self._eval(formula_ast1, container)?;
 
 				if let FormulaAstInner::Number(n1) = n1 {
 					if let FormulaAstInner::Number(n2) = n2 {
@@ -434,8 +483,8 @@ impl FormulaExecutor {
 				}
 			},
 			FormulaAst::Mod(formula_ast, formula_ast1) => {
-				let n1 = self.eval(formula_ast, container)?;
-				let n2 = self.eval(formula_ast1, container)?;
+				let n1 = self._eval(formula_ast, container)?;
+				let n2 = self._eval(formula_ast1, container)?;
 
 				if let FormulaAstInner::Number(n1) = n1 {
 					if let FormulaAstInner::Number(n2) = n2 {
@@ -466,10 +515,10 @@ impl FormulaExecutor {
 			FormulaAst::MacroCall(name, formula_asts) => {
 				let mut evaluated_arguments = Vec::with_capacity(formula_asts.len());
 				for arg in formula_asts {
-					evaluated_arguments.push(self.eval(arg, container)?);
+					evaluated_arguments.push(self._eval(arg, container)?);
 				}
 				match self.fn_table.get(&name.to_lowercase()) {
-					Some(fun) => fun(evaluated_arguments),
+					Some(fun) => fun(evaluated_arguments, container, self),
 					None => Err(Box::new(MacroDoesNotExist(format!("Macro {name} does not exist"))))
 				}
 			},
@@ -488,7 +537,7 @@ mod test {
 		let q = parser::FormulaParser::new();
 		let ast = q.parse("=7+12").unwrap();
 		let r = FormulaExecutor::new();
-		let result = r.eval(&ast, &m).unwrap();
+		let result = r._eval(&ast, &m).unwrap();
 		match result {
 			FormulaAstInner::Number(n) => assert_eq!(n, 7.0+12.0),
 			_ => assert!(false)
@@ -501,7 +550,7 @@ mod test {
 		let q = parser::FormulaParser::new();
 		let ast = q.parse("=7-12").unwrap();
 		let r = FormulaExecutor::new();
-		let result = r.eval(&ast, &m).unwrap();
+		let result = r._eval(&ast, &m).unwrap();
 		match result {
 			FormulaAstInner::Number(n) => assert_eq!(n, 7.0-12.0),
 			_ => assert!(false)
@@ -514,7 +563,7 @@ mod test {
 		let q = parser::FormulaParser::new();
 		let ast = q.parse("=7*12").unwrap();
 		let r = FormulaExecutor::new();
-		let result = r.eval(&ast, &m).unwrap();
+		let result = r._eval(&ast, &m).unwrap();
 		match result {
 			FormulaAstInner::Number(n) => assert_eq!(n, 7.0*12.0),
 			_ => assert!(false)
@@ -527,7 +576,7 @@ mod test {
 		let q = parser::FormulaParser::new();
 		let ast = q.parse("=7/12").unwrap();
 		let r = FormulaExecutor::new();
-		let result = r.eval(&ast, &m).unwrap();
+		let result = r._eval(&ast, &m).unwrap();
 		match result {
 			FormulaAstInner::Number(n) => assert_eq!(n, 7.0/12.0),
 			_ => assert!(false)
@@ -540,7 +589,7 @@ mod test {
 		let q = parser::FormulaParser::new();
 		let ast = q.parse("=7%12").unwrap();
 		let r = FormulaExecutor::new();
-		let result = r.eval(&ast, &m).unwrap();
+		let result = r._eval(&ast, &m).unwrap();
 		match result {
 			FormulaAstInner::Number(n) => assert_eq!(n, 7.0 % 12.0),
 			_ => assert!(false)
@@ -553,7 +602,7 @@ mod test {
 		let q = parser::FormulaParser::new();
 		let ast = q.parse("=7+12 * 13").unwrap();
 		let r = FormulaExecutor::new();
-		let result = r.eval(&ast, &m).unwrap();
+		let result = r._eval(&ast, &m).unwrap();
 		match result {
 			FormulaAstInner::Number(n) => assert_eq!(n, 7.0 + 12.0 * 13.0),
 			_ => assert!(false)
@@ -566,7 +615,7 @@ mod test {
 		let q = parser::FormulaParser::new();
 		let ast = q.parse("=NOW()").unwrap();
 		let r = FormulaExecutor::new();
-		let result = r.eval(&ast, &m).unwrap();
+		let result = r._eval(&ast, &m).unwrap();
 		match result {
 			FormulaAstInner::Number(n) => assert_ne!(n, 0.0),
 			_ => assert!(false)
