@@ -2,7 +2,26 @@ use std::error::Error;
 
 use crate::{Cell, Content::Number, container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the INTing of a range
+/// INT - Returns the integer part (truncates towards zero) of each numeric cell in a range.
+///
+/// This function returns a **Range** (not a single number), where each cell
+/// in the input range is replaced with its truncated integer value.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing cells to truncate
+///
+/// # Returns
+/// * `Range` - A new range where each cell contains the integer part (truncated towards zero)
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If first argument is not a range, or if any cell contains a string,
+///   or if a formula in the range evaluates to a range or string
+///
+/// # Example
+/// ```text
+/// =INT({0,0}:{2,2})  // Returns range with integer parts of 3x3 grid
+/// ```
 pub fn int(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("INT only accepts 1 argument".to_string())));
@@ -13,7 +32,7 @@ pub fn int(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formula
 	};
 
 	let FormulaAstInner::Range(range) = range else {
-		return Err(Box::new(TypeError("First argument to INT must be a range".to_string(),)));
+		return Err(Box::new(TypeError("INT requires a range as its argument".to_string())));
 	};
 
 	let mut ret = Vec::with_capacity(range.len());
@@ -22,22 +41,23 @@ pub fn int(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formula
 		let value = match &cell.content {
 			crate::Content::Formula(formula) => exec._eval(formula, container)?,
 			crate::Content::Number(value) => FormulaAstInner::Number(*value),
-			crate::Content::Str(_) => return Err(Box::new(TypeError("ROUND cannot round strings".to_string()))),
+			crate::Content::Str(_) => return Err(Box::new(TypeError("INT cannot truncate strings".to_string()))),
 		};
 
 		if matches!(value, FormulaAstInner::Range(_)) {
-			return Err(Box::new(TypeError("ROUND range contains a formula that evaluates to a range".to_string())));
+			return Err(Box::new(TypeError("INT range contains a formula that evaluates to a range".to_string())));
 		}
 
 		if matches!(value, FormulaAstInner::Str(_)) {
-			return Err(Box::new(TypeError("ROUND range contains a formula that evaluates to a string".to_string())));
+			return Err(Box::new(TypeError("INT range contains a formula that evaluates to a string".to_string())));
 		}
 
 		let FormulaAstInner::Number(v) = value else {
 			unreachable!()
 		};
 
-		ret.push((Cell{content: Number(v.round()), ..Default::default()}, p.clone()));
+		// Truncate towards zero (not round)
+		ret.push((Cell{content: Number(v.trunc()), ..Default::default()}, p.clone()));
 	}
 
 	Ok(FormulaAstInner::Range(ret))
@@ -60,9 +80,9 @@ mod test {
 				for k in 2..=3 {
 					let cell = m.get_cell_at(&vec![i,j,k]).unwrap().unwrap();
 					match cell.content {
-						crate::Content::Number(n) => assert!(n == 0.0),
+						crate::Content::Number(n) => assert_eq!(n, 0.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -88,20 +108,20 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert!(n == 0.0 || n == 12.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
 	}
 
 	#[test]
-	fn one_instance_up() {
+	fn one_instance_negative() {
 		let m = MapContainer::new(3);
 		let q = parser::FormulaParser::new();
 		let ast = q.parse("=INT({0,0,0}:{1,1,1})").unwrap();
 
 		let mut def = Cell::default();
-		def.content = crate::Content::Number(12.556);
+		def.content = crate::Content::Number(-12.556);
 
 		m.insert(&vec![0,0,1], def).unwrap();
 
@@ -112,9 +132,9 @@ mod test {
 				for k in 2..=3 {
 					let cell = m.get_cell_at(&vec![i,j,k]).unwrap().unwrap();
 					match cell.content {
-						crate::Content::Number(n) => assert!(n == 0.0 || n == 13.0),
+						crate::Content::Number(n) => assert!(n == 0.0 || n == -12.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -145,7 +165,7 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert_eq!(n, 12.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -174,9 +194,9 @@ mod test {
 				for k in 2..=3 {
 					let cell = m.get_cell_at(&vec![i,j,k]).unwrap().unwrap();
 					match cell.content {
-						crate::Content::Number(n) => assert_eq!(n, 13.0),
+						crate::Content::Number(n) => assert_eq!(n, 12.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}

@@ -2,7 +2,23 @@ use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Gets the sum of a range
+/// SUM - Returns the sum of all numeric values in a range.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing cells to sum
+///
+/// # Returns
+/// * `Number` - The arithmetic sum of all numeric cells in the range
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If first argument is not a range, or if any cell contains a string,
+///   or if a formula in the range evaluates to a range or string
+///
+/// # Example
+/// ```text
+/// =SUM({0,0}:{2,2})  // Sums all cells in 3x3 range starting at origin
+/// ```
 pub fn sum(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("SUM only accepts 1 argument".to_string())));
@@ -13,7 +29,7 @@ pub fn sum(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formula
 	};
 
 	let FormulaAstInner::Range(range) = range else {
-		return Err(Box::new(TypeError("First argument to SUM must be a range".to_string(),)));
+		return Err(Box::new(TypeError("SUM requires a range as its argument".to_string(),)));
 	};
 
 	let mut count = 0.0;
@@ -36,7 +52,7 @@ pub fn sum(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formula
 		count += match value {
 			FormulaAstInner::Number(f) => f,
 			_ => unreachable!()
-		};	
+		};
 	}
 
 	Ok(FormulaAstInner::Number(count))

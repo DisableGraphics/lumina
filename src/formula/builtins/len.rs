@@ -1,8 +1,24 @@
-use std::{error::Error};
+use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// LEN - Returns the length (number of characters) of a string.
+///
+/// # Arguments
+/// * `args[0]` - A `Str` (string) to measure
+///
+/// # Returns
+/// * `Number` - The number of characters in the string
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If first argument is not a string
+///
+/// # Example
+/// ```text
+/// =LEN("Hello")  // Returns 5
+/// =LEN("")  // Returns 0
+/// ```
 pub fn len(args: Vec<FormulaAstInner>, _container: &dyn Container, _exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("LEN only accepts 1 argument".to_string())));
@@ -13,9 +29,9 @@ pub fn len(args: Vec<FormulaAstInner>, _container: &dyn Container, _exec: &Formu
 	};
 
 	let FormulaAstInner::Str(str) = str else {
-		return Err(Box::new(TypeError("First argument to LEN must be a range".to_string(),)));
+		return Err(Box::new(TypeError("LEN requires a string as its argument".to_string())));
 	};
-	
+
 	Ok(FormulaAstInner::Number(str.chars().count() as f64))
 }
 

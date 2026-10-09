@@ -2,7 +2,29 @@ use std::error::Error;
 
 use crate::{Cell, container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the SORTolute of a range
+/// SORT - Sorts the values in a range and returns a new sorted range.
+///
+/// This function takes a range of cells, evaluates each cell's content (including formulas),
+/// converts all values to strings, sorts them (numbers numerically, strings lexicographically),
+/// and returns a new range with the sorted values placed starting from the minimum position
+/// of the original range.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing cells to sort
+///
+/// # Returns
+/// * `Range` - A new range with the same dimensions, containing sorted values as strings
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If first argument is not a range, or if a formula in the range evaluates to a range
+///
+/// # Example
+/// ```text
+/// =SORT({0,0}:{2,2})  // Sorts all cells in 3x3 range
+/// // If range contains: 5, 2, 8, "apple", "banana"
+/// // Returns range with: 2, 5, 8, "apple", "banana"
+/// ```
 pub fn sort(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("SORT only accepts 1 argument".to_string())));
@@ -13,7 +35,7 @@ pub fn sort(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formul
 	};
 
 	let FormulaAstInner::Range(range) = range else {
-		return Err(Box::new(TypeError("First argument to SORT must be a range".to_string(),)));
+		return Err(Box::new(TypeError("SORT requires a range as its argument".to_string())));
 	};
 
 	let mut sorteable = Vec::with_capacity(range.len());
@@ -44,7 +66,7 @@ pub fn sort(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formul
 		}
 	});
 
-	
+
 	let minimum = range
 		.iter()
 		.min_by(|a, b| a.1.cmp(&b.1))
@@ -91,7 +113,7 @@ mod test {
 					match cell.content {
 						crate::Content::Str(n) => assert_eq!(n, "0"),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -114,7 +136,7 @@ mod test {
 		for i in 2..=3 {
 			for j in 2..=3 {
 				for k in 2..=3 {
-					if !(i == j && j == k && i == 2) { 
+					if !(i == j && j == k && i == 2) {
 						let cell = m.get_cell_at(&vec![i,j,k]).unwrap().unwrap();
 						match cell.content {
 							crate::Content::Str(n) => assert_eq!(n, "0"),
@@ -151,7 +173,7 @@ mod test {
 					match cell.content {
 						crate::Content::Str(n) => assert_eq!(n, "12"),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}

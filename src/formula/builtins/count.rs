@@ -2,7 +2,27 @@ use std::error::Error;
 
 use crate::{Content, container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{ERROR_START, FormulaAstInner, FormulaExecutor}}};
 
-/// Gets the count of a range
+/// COUNT - Counts cells containing numbers in a range.
+///
+/// Iterates through all cells in the given range and counts those that contain
+/// numeric values (Content::Number). Empty cells, text cells, and error cells are ignored.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` of cells to count
+///
+/// # Returns
+/// * `Number` - The count of cells containing numeric values (as f64)
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If argument is not a range
+///
+/// # Example
+/// ```text
+/// =COUNT({0,0}:{2,2})  // Counts numbers in 3x3 grid
+/// =COUNT({0,0,0}:{1,1,1})  // Counts numbers in 2x2x2 cube
+/// // If A1=5, B1="text", C1=empty, D1=#ERROR: returns 1
+/// ```
 pub fn count(args: Vec<FormulaAstInner>, container: &dyn Container, _exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("COUNT only accepts 1 argument".to_string())));

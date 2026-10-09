@@ -2,7 +2,37 @@ use std::{error::Error};
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, builtins::{CmpOperator, get_operator, val_eq}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Sums all instances in a range matching an expression
+/// SUMIF - Sums cells in a range matching a criteria.
+///
+/// Iterates through all cells in the range and sums numeric values of those matching the criteria.
+/// The criteria can be:
+/// - A number: exact match (e.g., `12`)
+/// - An expression: comparison operator + value (e.g., `">= 2"`, `"< 10"`, `"<> 5"`)
+///
+/// String criteria are not supported for SUMIF (use COUNTIF for string matching).
+/// Cells containing text or errors are skipped (not summed, not counted as matches).
+///
+/// Supported operators: `==`, `!=`, `>`, `<`, `>=`, `<=`
+///
+/// # Arguments
+/// * `args[0]` - A `Range` of cells to evaluate and sum
+/// * `args[1]` - A `Number` or `Str` with comparison expression (not a Range)
+///
+/// # Returns
+/// * `Number` - The sum of matching numeric cells (as f64)
+///
+/// # Errors
+/// * `LengthError` - If not exactly 2 arguments provided
+/// * `TypeError` - If first argument is not a range, second is a range, criteria is a string (not expression), or range contains strings/ranges
+///
+/// # Example
+/// ```text
+/// =SUMIF({0,0}:{2,2}, 5)  // Sums cells equal to 5
+/// =SUMIF({0,0}:{2,2}, ">= 10")  // Sums cells >= 10
+/// =SUMIF({0,0}:{2,2}, "<> 0")  // Sums non-zero cells
+/// =SUMIF({0,0}:{2,2}, "< 0")  // Sums negative cells
+/// // If A1=5, B1=10, C1="text", D1=3: SUMIF(range, ">=5") = 15
+/// ```
 pub fn sumif(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 2 {
 		return Err(Box::new(LengthError("SUMIF only accepts 2 arguments".to_string())));

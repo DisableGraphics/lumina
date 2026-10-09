@@ -2,7 +2,23 @@ use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Gets the AVERAGE of a range
+/// AVERAGE - Returns the arithmetic mean of all numeric values in a range.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing cells to average
+///
+/// # Returns
+/// * `Number` - The arithmetic mean (sum / count) of all numeric cells in the range
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If first argument is not a range, or if any cell contains a string,
+///   or if a formula in the range evaluates to a range or string
+///
+/// # Example
+/// ```text
+/// =AVERAGE({0,0}:{2,2})  // Averages all cells in 3x3 range starting at origin
+/// ```
 pub fn average(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("AVERAGE only accepts 1 argument".to_string())));
@@ -13,11 +29,11 @@ pub fn average(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &For
 	};
 
 	let FormulaAstInner::Range(range) = range else {
-		return Err(Box::new(TypeError("First argument to AVERAGE must be a range".to_string(),)));
+		return Err(Box::new(TypeError("AVERAGE requires a range as its argument".to_string(),)));
 	};
 
 	let mut count = 0.0;
-	let mut val = 0.0;
+	let mut num_cells = 0.0;
 
 	for (cell, _) in range {
 		let value = match &cell.content {
@@ -33,15 +49,19 @@ pub fn average(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &For
 		if matches!(value, FormulaAstInner::Str(_)) {
 			return Err(Box::new(TypeError("AVERAGE range contains a formula that evaluates to a string".to_string())));
 		}
-		
-		count += 1.0;
-		val += match value {
+
+		count += match value {
 			FormulaAstInner::Number(f) => f,
 			_ => unreachable!()
-		};	
+		};
+		num_cells += 1.0;
 	}
 
-	Ok(FormulaAstInner::Number(val / count))
+	if num_cells == 0.0 {
+		return Ok(FormulaAstInner::Number(0.0));
+	}
+
+	Ok(FormulaAstInner::Number(count / num_cells))
 }
 
 #[cfg(test)]

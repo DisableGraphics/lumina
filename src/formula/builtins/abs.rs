@@ -2,7 +2,26 @@ use std::error::Error;
 
 use crate::{Cell, Content::Number, container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the absolute of a range
+/// ABS - Returns the absolute value of each numeric cell in a range.
+///
+/// This function returns a **Range** (not a single number), where each cell
+/// in the input range is replaced with its absolute value.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing cells to convert to absolute values
+///
+/// # Returns
+/// * `Range` - A new range where each cell contains the absolute value
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If first argument is not a range, or if any cell contains a string,
+///   or if a formula in the range evaluates to a range or string
+///
+/// # Example
+/// ```text
+/// =ABS({0,0}:{2,2})  // Returns range with absolute values of 3x3 grid
+/// ```
 pub fn abs(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("ABS only accepts 1 argument".to_string())));
@@ -13,7 +32,7 @@ pub fn abs(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formula
 	};
 
 	let FormulaAstInner::Range(range) = range else {
-		return Err(Box::new(TypeError("First argument to ABS must be a range".to_string(),)));
+		return Err(Box::new(TypeError("ABS requires a range as its argument".to_string())));
 	};
 
 	let mut ret = Vec::with_capacity(range.len());
@@ -22,7 +41,7 @@ pub fn abs(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formula
 		let value = match &cell.content {
 			crate::Content::Formula(formula) => exec._eval(formula, container)?,
 			crate::Content::Number(value) => FormulaAstInner::Number(*value),
-			crate::Content::Str(_) => return Err(Box::new(TypeError("ABS cannot get the ABSimum of strings".to_string()))),
+			crate::Content::Str(_) => return Err(Box::new(TypeError("ABS cannot compute absolute value of strings".to_string()))),
 		};
 
 		if matches!(value, FormulaAstInner::Range(_)) {
@@ -62,7 +81,7 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert!(n >= 0.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -88,7 +107,7 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert!(n >= 0.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -119,7 +138,7 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert!(n >= 0.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}

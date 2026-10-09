@@ -1,8 +1,29 @@
-use std::{error::Error};
+use std::error::Error;
 
 use crate::{Cell, container::Container, formula::{FormulaError::LengthError, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// TORANGE - Converts a value (number, string, or cell content) to a single-cell range.
+///
+/// This function accepts a number, string, or single-cell range and converts it
+/// to a range containing one cell. If the input is already a range, it's returned
+/// as-is (if it has exactly one cell). If it's a number or string, a new single-cell
+/// range is created at position \[0,0,0\] with that value.
+///
+/// # Arguments
+/// * `args[0]` - A `Number`, `Str`, or single-cell `Range` to convert to a range
+///
+/// # Returns
+/// * `Range` - A single-cell range containing the value
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided, or if a range contains more than one cell
+///
+/// # Example
+/// ```text
+/// =TORANGE(123)  // Returns range with single cell containing 123.0 at [0,0,0]
+/// =TORANGE("hello")  // Returns range with single cell containing "hello" at [0,0,0]
+/// =TORANGE({5,5})  // Returns the range containing cell at [5,5] (if single cell)
+/// ```
 pub fn torange(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("TORANGE only accepts 1 argument".to_string())));

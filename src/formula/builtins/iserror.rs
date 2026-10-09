@@ -1,8 +1,27 @@
-use std::{error::Error};
+use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{ERROR_START, FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// ISERROR - Checks if a single cell contains an error value.
+///
+/// This function takes a single-cell range and returns 1 if the cell's display content
+/// starts with the error prefix (indicating a formula evaluation error), 0 otherwise.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing exactly one cell to check
+///
+/// # Returns
+/// * `Number` - 1.0 if the cell contains an error, 0.0 otherwise (including empty cells, valid numbers, strings)
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided, or if the range contains more than one cell
+/// * `TypeError` - If first argument is not a range
+///
+/// # Example
+/// ```text
+/// =ISERROR({0,0})  // Returns 1.0 if cell at [0,0] contains a formula error
+/// =ISERROR({5,10})  // Returns 0.0 if cell at [5,10] contains a valid value
+/// ```
 pub fn iserror(args: Vec<FormulaAstInner>, container: &dyn Container, _exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("ISERROR only accepts 1 argument".to_string())));
@@ -13,11 +32,11 @@ pub fn iserror(args: Vec<FormulaAstInner>, container: &dyn Container, _exec: &Fo
 	};
 
 	let FormulaAstInner::Range(cell) = cell else {
-		return Err(Box::new(TypeError("First argument to ISERROR must be a range".to_string(),)));
+		return Err(Box::new(TypeError("ISERROR requires a range as its argument".to_string())));
 	};
 
 	if cell.len() != 1 {
-		return Err(Box::new(LengthError("ISERROR only accepts 1 cell".to_string())));
+		return Err(Box::new(LengthError("ISERROR only accepts a single cell range".to_string())));
 	}
 
 	if container.is_empty_cell(&cell[0].1) {

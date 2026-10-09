@@ -2,7 +2,28 @@ use std::error::Error;
 
 use crate::{Cell, Content::Number, container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the SQRTing of a range
+/// SQRT - Returns the nth root of each numeric cell in a range.
+///
+/// This function returns a **Range** (not a single number), where each cell
+/// in the input range is replaced with its nth root.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing cells to compute roots of
+/// * `args[1]` - A `Number` specifying the root (default 2 = square root)
+///
+/// # Returns
+/// * `Range` - A new range where each cell contains the nth root value
+///
+/// # Errors
+/// * `LengthError` - If not exactly 2 arguments provided
+/// * `TypeError` - If first argument is not a range, second argument is not a number,
+///   or if any cell contains a string, or if a formula in the range evaluates to a range or string
+///
+/// # Example
+/// ```text
+/// =SQRT({0,0}:{2,2}, 2)  // Returns range with square roots
+/// =SQRT({0,0}:{2,2}, 3)  // Returns range with cube roots
+/// ```
 pub fn sqrt(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 2 {
 		return Err(Box::new(LengthError("SQRT only accepts 2 arguments".to_string())));
@@ -13,11 +34,11 @@ pub fn sqrt(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formul
 	};
 
 	let FormulaAstInner::Range(range) = range else {
-		return Err(Box::new(TypeError("First argument to SQRT must be a range".to_string(),)));
+		return Err(Box::new(TypeError("SQRT requires a range as its first argument".to_string())));
 	};
 
 	let FormulaAstInner::Number(pow) = pow else {
-		return Err(Box::new(TypeError("Second argument to SQRT must be a range".to_string(),)));
+		return Err(Box::new(TypeError("SQRT requires a number as its second argument (root)".to_string())));
 	};
 
 	let mut ret = Vec::with_capacity(range.len());
@@ -26,7 +47,7 @@ pub fn sqrt(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formul
 		let value = match &cell.content {
 			crate::Content::Formula(formula) => exec._eval(formula, container)?,
 			crate::Content::Number(value) => FormulaAstInner::Number(*value),
-			crate::Content::Str(_) => return Err(Box::new(TypeError("SQRT cannot SQRT strings".to_string()))),
+			crate::Content::Str(_) => return Err(Box::new(TypeError("SQRT cannot compute roots of strings".to_string()))),
 		};
 
 		if matches!(value, FormulaAstInner::Range(_)) {
@@ -64,9 +85,9 @@ mod test {
 				for k in 2..=3 {
 					let cell = m.get_cell_at(&vec![i,j,k]).unwrap().unwrap();
 					match cell.content {
-						crate::Content::Number(n) => assert!(n == 0.0),
+						crate::Content::Number(n) => assert_eq!(n, 0.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -92,7 +113,7 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert!(n == 0.0 || n == 2.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -123,7 +144,7 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert_eq!(n, 2.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}

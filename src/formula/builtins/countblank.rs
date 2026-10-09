@@ -2,7 +2,27 @@ use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Gets the count of a range
+/// COUNTBLANK - Counts empty cells in a range.
+///
+/// Iterates through all cells in the given range and counts those that are empty
+/// (not set in the container). Cells with errors are NOT counted as blank.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` of cells to count
+///
+/// # Returns
+/// * `Number` - The count of empty cells (as f64)
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If argument is not a range
+///
+/// # Example
+/// ```text
+/// =COUNTBLANK({0,0}:{2,2})  // Counts empty cells in 3x3 grid
+/// =COUNTBLANK({0,0,0}:{1,1,1})  // Counts empty in 2x2x2 cube
+/// // If A1=5, B1="text", C1=empty, D1=#ERROR: returns 1 (only C1)
+/// ```
 pub fn countblank(args: Vec<FormulaAstInner>, container: &dyn Container, _exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("COUNTBLANK only accepts 1 argument".to_string())));

@@ -10,24 +10,6 @@ pub mod formula;
 /// IO
 pub mod io;
 
-/// Color structure
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, PartialOrd)]
-pub struct Color {
-	/// red
-	pub r: u8,
-	/// green
-	pub g: u8,
-	/// blue
-	pub b: u8
-}
-
-impl Color {
-	/// Create a color from a tuple of 3 RGB values
-	pub fn from_tuple(t: (u8,u8,u8)) -> Self {
-		Self { r: t.0, g: t.1, b: t.2 }
-	}
-}
-
 /// Properties that a cell may have
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, PartialOrd)]
 pub struct Properties {
@@ -63,7 +45,7 @@ impl Default for Cell {
 }
 
 impl Cell {
-	/// Create empty
+	/// Create empty cell (Containing the number 0 and no display content)
 	pub fn new() -> Self {
 		Self { 
 			content: Content::Number(0.0),

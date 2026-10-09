@@ -1,29 +1,48 @@
-use std::{error::Error};
+use std::error::Error;
 
-use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, builtins::{ifeval}, exec::{FormulaAstInner, FormulaExecutor}}};
+use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, builtins::ifeval, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// AND - Returns true (1) if all conditions evaluate to true, false (0) otherwise.
+///
+/// Each argument is a string expression that gets parsed and evaluated. All must
+/// evaluate to true (non-zero) for the result to be true.
+///
+/// # Arguments
+/// * `args[0..]` - Two or more `Str` values, each containing a parseable expression
+///
+/// # Returns
+/// * `Number` - 1.0 if all conditions are true, 0.0 otherwise
+///
+/// # Errors
+/// * `LengthError` - If fewer than 2 arguments provided
+/// * `TypeError` - If any argument is not a string, or if any expression cannot be parsed/evaluated
+///
+/// # Example
+/// ```text
+/// =AND("TONUMBER({0,0}) > 5", "TONUMBER({0,1}) < 10")  // Returns 1 if both true
+/// =AND("ISTEXT({0,0})", "ISNUMBER({0,1})")  // Returns 1 if A1 is text and B1 is number
+/// =AND("1==1", "2==2", "3==3")  // Returns 1 (all true)
+/// ```
 pub fn and(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
-	if args.len() != 2 {
-		return Err(Box::new(LengthError("AND only accepts 2 arguments".to_string())));
+	if args.len() < 2 {
+		return Err(Box::new(LengthError("AND requires at least 2 arguments".to_string())));
 	}
 
-	let [cell1, cell2] = args.as_slice() else {
-		unreachable!()
-	};
+	let mut all_true = true;
 
-	let FormulaAstInner::Str(cell1) = cell1 else {
-		return Err(Box::new(TypeError("First argument to AND must be a string with a parseable expression inside".to_string())));
-	};
+	for arg in args {
+		let FormulaAstInner::Str(cell) = arg else {
+			return Err(Box::new(TypeError("AND requires string arguments (condition expressions)".to_string())));
+		};
 
-	let FormulaAstInner::Str(cell2) = cell2 else {
-		return Err(Box::new(TypeError("Second argument to AND must be a string with a parseable expression inside".to_string())));
-	};
-	
-	let exprval1 = ifeval(cell1, container, exec)?;
-	let exprval2 = ifeval(cell2, container, exec)?;
-	
-	Ok(FormulaAstInner::Number(match exprval1 && exprval2 {
+		let exprval = ifeval(&cell, container, exec)?;
+		if !exprval {
+			all_true = false;
+			break;
+		}
+	}
+
+	Ok(FormulaAstInner::Number(match all_true {
 		true => 1.0,
 		false => 0.0
 	}))
@@ -69,6 +88,32 @@ mod test {
 		let result = r._eval(&ast, &m).unwrap();
 		match result {
 			FormulaAstInner::Number(n) => assert_eq!(n, 1.0),
+			_ => assert!(false)
+		}
+	}
+
+	#[test]
+	fn correct_three_args() {
+		let m = MapContainer::new(3);
+		let q = parser::FormulaParser::new();
+		let ast = q.parse("=AND(\"1==1\", \"2==2\", \"3==3\")").unwrap();
+		let r = FormulaExecutor::new();
+		let result = r._eval(&ast, &m).unwrap();
+		match result {
+			FormulaAstInner::Number(n) => assert_eq!(n, 1.0),
+			_ => assert!(false)
+		}
+	}
+
+	#[test]
+	fn correct_false() {
+		let m = MapContainer::new(3);
+		let q = parser::FormulaParser::new();
+		let ast = q.parse("=AND(\"1==1\", \"2==3\")").unwrap();
+		let r = FormulaExecutor::new();
+		let result = r._eval(&ast, &m).unwrap();
+		match result {
+			FormulaAstInner::Number(n) => assert_eq!(n, 0.0),
 			_ => assert!(false)
 		}
 	}

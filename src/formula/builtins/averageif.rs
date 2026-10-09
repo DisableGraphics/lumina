@@ -2,7 +2,39 @@ use std::{error::Error};
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, builtins::{CmpOperator, get_operator, val_eq}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Averages the value of all instances in a range matching an expression
+/// AVERAGEIF - Averages cells in a range matching a criteria.
+///
+/// Iterates through all cells in the range and averages numeric values of those matching the criteria.
+/// The criteria can be:
+/// - A number: exact match (e.g., `12`)
+/// - An expression: comparison operator + value (e.g., `">= 2"`, `"< 10"`, `"<> 5"`)
+///
+/// String criteria are not supported for AVERAGEIF (use COUNTIF for string matching).
+/// Cells containing text or errors are skipped.
+/// Returns NaN if no cells match the criteria.
+///
+/// Supported operators: `==`, `!=`, `>`, `<`, `>=`, `<=`
+///
+/// # Arguments
+/// * `args[0]` - A `Range` of cells to evaluate and average
+/// * `args[1]` - A `Number` or `Str` with comparison expression (not a Range)
+///
+/// # Returns
+/// * `Number` - The average of matching numeric cells (as f64), or NaN if no matches
+///
+/// # Errors
+/// * `LengthError` - If not exactly 2 arguments provided
+/// * `TypeError` - If first argument is not a range, second is a range, criteria is a string (not expression), or range contains strings/ranges
+///
+/// # Example
+/// ```text
+/// =AVERAGEIF({0,0}:{2,2}, 5)  // Averages cells equal to 5
+/// =AVERAGEIF({0,0}:{2,2}, ">= 10")  // Averages cells >= 10
+/// =AVERAGEIF({0,0}:{2,2}, "<> 0")  // Averages non-zero cells
+/// =AVERAGEIF({0,0}:{2,2}, "< 0")  // Averages negative cells
+/// // If A1=5, B1=10, C1=15, D1="text": AVERAGEIF(range, ">=5") = 10
+/// // If no matches: returns NaN
+/// ```
 pub fn averageif(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 2 {
 		return Err(Box::new(LengthError("AVERAGEIF only accepts 2 arguments".to_string())));

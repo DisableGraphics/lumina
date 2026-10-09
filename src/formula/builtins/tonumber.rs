@@ -1,8 +1,32 @@
-use std::{error::Error};
+use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// TONUMBER - Parses a string or cell content as a number.
+///
+/// This function accepts a string, number, or single-cell range and attempts to
+/// convert it to a numeric value. If the input is already a number, it's returned
+/// as-is. If it's a string, it's parsed as a float. If it's a range, the cell's
+/// content is evaluated (including formulas) and then converted.
+///
+/// # Arguments
+/// * `args[0]` - A `Str`, `Number`, or single-cell `Range` to convert to a number
+///
+/// # Returns
+/// * `Number` - The parsed numeric value
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided, or if a range contains more than one cell
+/// * `TypeError` - If a range cell contains a formula that evaluates to a range,
+///   or if a string cannot be parsed as a number
+///
+/// # Example
+/// ```text
+/// =TONUMBER("123")  // Returns 123.0
+/// =TONUMBER(42)  // Returns 42.0
+/// =TONUMBER({0,0})  // Returns numeric value of cell at [0,0]
+/// =TONUMBER("3.14")  // Returns 3.14
+/// ```
 pub fn tonumber(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("TONUMBER only accepts 1 argument".to_string())));

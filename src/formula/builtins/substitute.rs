@@ -1,8 +1,27 @@
-use std::{error::Error};
+use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// SUBSTITUTE - Replaces all occurrences of a substring within a string.
+///
+/// # Arguments
+/// * `args[0]` - A `Str` (string) to search within
+/// * `args[1]` - A `Str` (string) to find and replace
+/// * `args[2]` - A `Str` (string) to replace with
+///
+/// # Returns
+/// * `Str` - The string with all occurrences of `needle` replaced by `subs`
+///
+/// # Errors
+/// * `LengthError` - If not exactly 3 arguments provided
+/// * `TypeError` - If any argument is not a string
+///
+/// # Example
+/// ```text
+/// =SUBSTITUTE("Hello world", "o", "0")  // Returns "Hell0 w0rld"
+/// =SUBSTITUTE("  spaces  ", " ", "")  // Returns "spaces"
+/// =SUBSTITUTE("", "", "")  // Returns ""
+/// ```
 pub fn substitute(args: Vec<FormulaAstInner>, _container: &dyn Container, _exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 3 {
 		return Err(Box::new(LengthError("SUBSTITUTE only accepts 3 arguments".to_string())));
@@ -13,17 +32,17 @@ pub fn substitute(args: Vec<FormulaAstInner>, _container: &dyn Container, _exec:
 	};
 
 	let FormulaAstInner::Str(str) = str else {
-		return Err(Box::new(TypeError("First argument to SUBSTITUTE must be a string".to_string(),)));
+		return Err(Box::new(TypeError("SUBSTITUTE requires a string as its first argument".to_string())));
 	};
 
 	let FormulaAstInner::Str(needle) = needle else {
-		return Err(Box::new(TypeError("Second argument to SUBSTITUTE must be a string".to_string(),)));
+		return Err(Box::new(TypeError("SUBSTITUTE requires a string as its second argument (text to replace)".to_string())));
 	};
 
 	let FormulaAstInner::Str(subs) = subs else {
-		return Err(Box::new(TypeError("Third argument to SUBSTITUTE must be a string".to_string(),)));
+		return Err(Box::new(TypeError("SUBSTITUTE requires a string as its third argument (replacement text)".to_string())));
 	};
-	
+
 	Ok(FormulaAstInner::Str(str.replace(needle, subs)))
 }
 

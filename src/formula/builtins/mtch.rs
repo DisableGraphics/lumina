@@ -6,7 +6,32 @@ fn vec_sub(a: &Vec<usize>, b: &Vec<usize>) -> Vec<usize> {
 	a.iter().zip(b).map(|(a, b)| *a - *b).collect()
 }
 
-/// Returns the current date and time as a UNIX timestamp
+/// MATCH - Searches for a value in a range and returns its relative position.
+///
+/// Searches the range (second argument) for the search value (first argument) using exact match.
+/// Returns a single-element range containing the position relative to the range's minimum coordinates.
+///
+/// # Arguments
+/// * `args[0]` - Search value: `Number` or `Str` (not a Range)
+/// * `args[1]` - Lookup range: A `Range` to search in
+///
+/// # Returns
+/// * `Range` - Single-element range containing the relative position as a position vector
+///   (e.g., for a 2D range starting at (0,0), position (0,1) means row 0, column 1)
+///
+/// # Errors
+/// * `LengthError` - If not exactly 2 arguments provided
+/// * `TypeError` - If first argument is a range, or second argument is not a range
+/// * `RuntimeError` - If range is empty, or value not found in range
+///
+/// # Example
+/// ```text
+/// =MATCH("Apple", {0,0}:{0,4})  // Returns range with position of "Apple" in row
+/// =MATCH(42, {0,0}:{2,2})  // Returns position of 42 in 3x3 grid
+/// =MATCH("NotFound", {0,0}:{0,2})  // Returns error (not found)
+/// // If range A1:C1 has "A","B","C", MATCH("B", A1:C1) returns position [0,1]
+/// // If range A1:B2 has 1,2,3,4, MATCH(3, A1:B2) returns position [1,0]
+/// ```
 pub fn mtch(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 2 {
 		return Err(Box::new(LengthError("MATCH only accepts 2 arguments".to_string())));
@@ -41,7 +66,7 @@ pub fn mtch(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formul
 				break;
 			}
 		}
-		found.ok_or_else(|| Box::new(TypeError("Positions must evaluate to an argument".to_string())))?
+		found.ok_or_else(|| Box::new(TypeError("Value not found in range".to_string())))?
 	};
 
 	Ok(FormulaAstInner::Range(vec![(Cell::default(), vec_sub(pos, &minimum.1))]))

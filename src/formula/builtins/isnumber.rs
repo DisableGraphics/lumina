@@ -1,8 +1,27 @@
-use std::{error::Error};
+use std::error::Error;
 
 use crate::{Content::Number, container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// ISNUMBER - Checks if a single cell contains a numeric value.
+///
+/// This function takes a single-cell range and returns 1 if the cell contains a number
+/// (including numbers from formula evaluation), 0 otherwise.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing exactly one cell to check
+///
+/// # Returns
+/// * `Number` - 1.0 if the cell contains a number, 0.0 otherwise (including empty cells, strings, formulas evaluating to non-numbers)
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided, or if the range contains more than one cell
+/// * `TypeError` - If first argument is not a range
+///
+/// # Example
+/// ```text
+/// =ISNUMBER({0,0})  // Returns 1.0 if cell at [0,0] contains a number
+/// =ISNUMBER({5,10})  // Returns 0.0 if cell at [5,10] contains a string
+/// ```
 pub fn isnumber(args: Vec<FormulaAstInner>, container: &dyn Container, _exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("ISNUMBER only accepts 1 argument".to_string())));
@@ -13,11 +32,11 @@ pub fn isnumber(args: Vec<FormulaAstInner>, container: &dyn Container, _exec: &F
 	};
 
 	let FormulaAstInner::Range(cell) = cell else {
-		return Err(Box::new(TypeError("First argument to ISNUMBER must be a range".to_string(),)));
+		return Err(Box::new(TypeError("ISNUMBER requires a range as its argument".to_string())));
 	};
 
 	if cell.len() != 1 {
-		return Err(Box::new(LengthError("ISNUMBER only accepts 1 cell".to_string())));
+		return Err(Box::new(LengthError("ISNUMBER only accepts a single cell range".to_string())));
 	}
 
 	if container.is_empty_cell(&cell[0].1) {
@@ -28,7 +47,7 @@ pub fn isnumber(args: Vec<FormulaAstInner>, container: &dyn Container, _exec: &F
 		Number(_) => 1.0,
 		_ => 0.0
 	};
-	
+
 	Ok(FormulaAstInner::Number(is_num))
 }
 

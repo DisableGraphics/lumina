@@ -2,7 +2,27 @@ use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{ERROR_START, FormulaAstInner, FormulaExecutor}}};
 
-/// Gets the count of a range
+/// COUNTA - Counts non-empty cells in a range.
+///
+/// Iterates through all cells in the given range and counts those that are not empty
+/// and do not contain errors. Unlike COUNT, this includes text cells.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` of cells to count
+///
+/// # Returns
+/// * `Number` - The count of non-empty, non-error cells (as f64)
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If argument is not a range
+///
+/// # Example
+/// ```text
+/// =COUNTA({0,0}:{2,2})  // Counts non-empty cells in 3x3 grid
+/// =COUNTA({0,0,0}:{1,1,1})  // Counts non-empty in 2x2x2 cube
+/// // If A1=5, B1="text", C1=empty, D1=#ERROR: returns 2 (counts 5 and "text")
+/// ```
 pub fn counta(args: Vec<FormulaAstInner>, container: &dyn Container, _exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("COUNTA only accepts 1 argument".to_string())));

@@ -1,8 +1,24 @@
-use std::{error::Error};
+use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// LOWER - Converts a string to lowercase.
+///
+/// # Arguments
+/// * `args[0]` - A `Str` (string) to convert to lowercase
+///
+/// # Returns
+/// * `Str` - The string converted to lowercase
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If first argument is not a string
+///
+/// # Example
+/// ```text
+/// =LOWER("Hello World")  // Returns "hello world"
+/// =LOWER("ALREADY LOWER")  // Returns "already lower"
+/// ```
 pub fn lower(args: Vec<FormulaAstInner>, _container: &dyn Container, _exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("LOWER only accepts 1 argument".to_string())));
@@ -13,9 +29,9 @@ pub fn lower(args: Vec<FormulaAstInner>, _container: &dyn Container, _exec: &For
 	};
 
 	let FormulaAstInner::Str(str) = str else {
-		return Err(Box::new(TypeError("First argument to LOWER must be a range".to_string(),)));
+		return Err(Box::new(TypeError("LOWER requires a string as its argument".to_string())));
 	};
-	
+
 	Ok(FormulaAstInner::Str(str.to_lowercase()))
 }
 

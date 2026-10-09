@@ -58,11 +58,11 @@ pub trait Container : Iterator<Item = (Vec<usize>, Cell)> {
 	/// Sets cell at position p
 	fn set_cell_at(&self, p: &PositionN, nc: Cell) -> Result<(), RetError>;
 	/// Sets number of axes. All current data is appended the extra axes
-	fn set_axes(&mut self, naxes: usize) -> Result<(), RetError>;
+	fn set_axes(&self, naxes: usize) -> Result<(), RetError>;
 	/// Get number axes
 	fn get_axes(&self) -> usize;
 	/// Get number of cells
 	fn get_n_cells(&self) -> usize;
 	/// Remove an axis. Retains all elements in retain_coord (or coordinate 0 if None)
-	fn remove_axis(&mut self, axispos: usize, retain_coord: Option<usize>) -> Result<(), RetError>;
+	fn remove_axis(&self, axispos: usize, retain_coord: Option<usize>) -> Result<(), RetError>;
 }

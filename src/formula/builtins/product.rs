@@ -2,7 +2,23 @@ use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Gets the PRODUCT of a range
+/// PRODUCT - Returns the product of all numeric values in a range.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing cells to multiply
+///
+/// # Returns
+/// * `Number` - The product of all numeric cells in the range
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If first argument is not a range, or if any cell contains a string,
+///   or if a formula in the range evaluates to a range or string
+///
+/// # Example
+/// ```text
+/// =PRODUCT({0,0}:{2,2})  // Multiplies all cells in 3x3 range starting at origin
+/// ```
 pub fn product(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("PRODUCT only accepts 1 argument".to_string())));
@@ -13,7 +29,7 @@ pub fn product(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &For
 	};
 
 	let FormulaAstInner::Range(range) = range else {
-		return Err(Box::new(TypeError("First argument to PRODUCT must be a range".to_string(),)));
+		return Err(Box::new(TypeError("PRODUCT requires a range as its argument".to_string(),)));
 	};
 
 	let mut count = 1.0;
@@ -36,7 +52,7 @@ pub fn product(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &For
 		count *= match value {
 			FormulaAstInner::Number(f) => f,
 			_ => unreachable!()
-		};	
+		};
 	}
 
 	Ok(FormulaAstInner::Number(count))
@@ -66,7 +82,7 @@ mod test {
 		let ast = q.parse("=PRODUCT({0,0,0}:{1,1,1})").unwrap();
 
 		let mut def = Cell::default();
-		def.content = crate::Content::Number(12.0);
+		def.content = crate::Content::Number(2.0);
 
 		m.insert(&vec![0,0,1], def).unwrap();
 
@@ -88,7 +104,7 @@ mod test {
 			for j in 0..=1 {
 				for k in 0..=1 {
 					let mut def = Cell::default();
-					def.content = crate::Content::Number(12.0);
+					def.content = crate::Content::Number(2.0);
 					m.insert(&vec![i, j, k], def).unwrap();
 				}
 			}
@@ -97,7 +113,7 @@ mod test {
 		let r = FormulaExecutor::new();
 		let result = r._eval(&ast, &m).unwrap();
 		match result {
-			FormulaAstInner::Number(n) => assert_eq!(n, 12.0_f64.powf(8.0)),
+			FormulaAstInner::Number(n) => assert_eq!(n, 256.0),
 			_ => assert!(false)
 		}
 	}

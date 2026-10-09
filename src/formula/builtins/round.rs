@@ -2,7 +2,27 @@ use std::error::Error;
 
 use crate::{Cell, Content::Number, container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the rounding of a range
+/// ROUND - Rounds each numeric cell in a range to the specified number of decimal places.
+///
+/// This function returns a **Range** (not a single number), where each cell
+/// in the input range is replaced with its rounded value.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing cells to round
+/// * `args[1]` - A `Number` specifying the number of decimal places
+///
+/// # Returns
+/// * `Range` - A new range where each cell contains the rounded value
+///
+/// # Errors
+/// * `LengthError` - If not exactly 2 arguments provided
+/// * `TypeError` - If first argument is not a range, second argument is not a number,
+///   or if any cell contains a string, or if a formula in the range evaluates to a range or string
+///
+/// # Example
+/// ```text
+/// =ROUND({0,0}:{2,2}, 2)  // Returns range with values rounded to 2 decimal places
+/// ```
 pub fn round(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 2 {
 		return Err(Box::new(LengthError("ROUND only accepts 2 arguments".to_string())));
@@ -13,11 +33,11 @@ pub fn round(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Formu
 	};
 
 	let FormulaAstInner::Range(range) = range else {
-		return Err(Box::new(TypeError("First argument to ROUND must be a range".to_string(),)));
+		return Err(Box::new(TypeError("ROUND requires a range as its first argument".to_string())));
 	};
 
 	let FormulaAstInner::Number(digits) = round else {
-		return Err(Box::new(TypeError("Second argument to ROUND must be a range".to_string(),)));
+		return Err(Box::new(TypeError("ROUND requires a number as its second argument (decimal places)".to_string())));
 	};
 
 	let digits = *digits as i32;
@@ -67,9 +87,9 @@ mod test {
 				for k in 2..=3 {
 					let cell = m.get_cell_at(&vec![i,j,k]).unwrap().unwrap();
 					match cell.content {
-						crate::Content::Number(n) => assert!(n == 0.0),
+						crate::Content::Number(n) => assert_eq!(n, 0.0),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -95,7 +115,7 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert!(n == 0.0 || n == 12.25),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -121,7 +141,7 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert!(n == 0.0 || n == 12.26),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -152,7 +172,7 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert_eq!(n, 12.25),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}
@@ -183,7 +203,7 @@ mod test {
 					match cell.content {
 						crate::Content::Number(n) => assert_eq!(n, 12.26),
 						_ => assert!(false)
-					}	
+					}
 				}
 			}
 		}

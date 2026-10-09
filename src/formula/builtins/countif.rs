@@ -2,7 +2,35 @@ use std::{error::Error};
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, builtins::{CmpOperator, get_operator, val_eq}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Counts the number of instances in a range matching an expression
+/// COUNTIF - Counts cells in a range matching a criteria.
+///
+/// Iterates through all cells in the range and counts those matching the criteria.
+/// The criteria can be:
+/// - A number: exact match (e.g., `12`)
+/// - A string: exact match (e.g., `"12"` or `"text"`)
+/// - An expression: comparison operator + value (e.g., `">= 2"`, `"< 10"`, `"<> 5"`)
+///
+/// Supported operators: `==`, `!=`, `>`, `<`, `>=`, `<=`
+///
+/// # Arguments
+/// * `args[0]` - A `Range` of cells to evaluate
+/// * `args[1]` - A `Number`, `Str`, or `Str` with comparison expression (not a Range)
+///
+/// # Returns
+/// * `Number` - The count of matching cells (as f64)
+///
+/// # Errors
+/// * `LengthError` - If not exactly 2 arguments provided
+/// * `TypeError` - If first argument is not a range, or second argument is a range, or formula in range evaluates to a range
+///
+/// # Example
+/// ```text
+/// =COUNTIF({0,0}:{2,2}, 5)  // Counts cells equal to 5
+/// =COUNTIF({0,0}:{2,2}, "Hello")  // Counts cells equal to "Hello"
+/// =COUNTIF({0,0}:{2,2}, ">= 10")  // Counts cells >= 10
+/// =COUNTIF({0,0}:{2,2}, "<> 0")  // Counts non-zero cells
+/// =COUNTIF({0,0}:{2,2}, "< 0")  // Counts negative cells
+/// ```
 pub fn countif(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 2 {
 		return Err(Box::new(LengthError("COUNTIF only accepts 2 arguments".to_string())));

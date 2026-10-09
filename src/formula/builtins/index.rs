@@ -2,7 +2,31 @@ use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, RuntimeError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}, vec_sub}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// INDEX - Returns the value at a specific position within a range.
+///
+/// Takes a range and a position (either as individual numbers or a single-element range)
+/// and returns the cell value at that position. Position is relative to the range's minimum
+/// coordinates. For an N-dimensional range, provide N position arguments.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` to index into
+/// * `args[1..]` - Position coordinates (either N `Number` arguments, or a single `Range` with one element containing the position)
+///
+/// # Returns
+/// * The value at the specified position (Number, Str, or evaluated Formula result)
+///
+/// # Errors
+/// * `LengthError` - If fewer than 2 arguments, or more position arguments than dimensions
+/// * `TypeError` - If first argument is not a range, position arguments are not numbers, or position range has wrong size
+/// * `RuntimeError` - If range is empty (no minimum position found)
+///
+/// # Example
+/// ```text
+/// =INDEX({0,0}:{2,2}, 1, 1)  // Returns value at row 1, col 1 of 3x3 range (center cell)
+/// =INDEX({0,0,0}:{1,1,1}, 0, 1, 1)  // 3D: returns value at (0,1,1) relative to range start
+/// =INDEX({0,0}:{2,2}, {1, 1})  // Position as single-element range
+/// // If range A1:C3 has values 1-9, INDEX(A1:C3, 1, 1) returns 5 (center)
+/// ```
 pub fn index(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() < 2 {
 		return Err(Box::new(LengthError("INDEX accepts at least 2 arguments".to_string())));
@@ -123,7 +147,7 @@ use crate::{Cell, Content, container::{Container, mapcontainer::MapContainer}, f
 		}
 	}
 
-	
+
 	#[test]
 	fn correct_len_range() {
 		let m = MapContainer::new(3);

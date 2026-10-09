@@ -1,8 +1,25 @@
-use std::{error::Error};
+use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// TRIM - Removes leading and trailing whitespace from a string.
+///
+/// # Arguments
+/// * `args[0]` - A `Str` (string) to trim
+///
+/// # Returns
+/// * `Str` - The string with leading and trailing whitespace removed
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If first argument is not a string
+///
+/// # Example
+/// ```text
+/// =TRIM("  Hello world  ")  // Returns "Hello world"
+/// =TRIM("\t\nHello\t\n")  // Returns "Hello"
+/// =TRIM("")  // Returns ""
+/// ```
 pub fn trim(args: Vec<FormulaAstInner>, _container: &dyn Container, _exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("TRIM only accepts 1 argument".to_string())));
@@ -13,9 +30,9 @@ pub fn trim(args: Vec<FormulaAstInner>, _container: &dyn Container, _exec: &Form
 	};
 
 	let FormulaAstInner::Str(str) = str else {
-		return Err(Box::new(TypeError("First argument to TRIM must be a string".to_string(),)));
+		return Err(Box::new(TypeError("TRIM requires a string as its argument".to_string())));
 	};
-	
+
 	Ok(FormulaAstInner::Str(str.trim().to_string()))
 }
 

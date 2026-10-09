@@ -2,7 +2,26 @@ use std::error::Error;
 
 use crate::{container::Container, formula::{FormulaError::{LengthError, TypeError}, exec::{FormulaAstInner, FormulaExecutor}}};
 
-/// Gets the CONCATimum value of a range
+/// CONCAT - Concatenates all string values in a range into a single string.
+///
+/// This function iterates over a range of cells, converts each cell's content to a string,
+/// and concatenates them together. Empty cells are skipped. Numbers are converted to strings.
+///
+/// # Arguments
+/// * `args[0]` - A `Range` containing cells to concatenate
+///
+/// # Returns
+/// * `Str` - The concatenated string of all non-empty cells in the range
+///
+/// # Errors
+/// * `LengthError` - If not exactly 1 argument provided
+/// * `TypeError` - If first argument is not a range, or if a formula in the range evaluates to a range
+///
+/// # Example
+/// ```text
+/// =CONCAT({0,0}:{2,2})  // Concatenates all cells in 3x3 range
+/// // If A1="Hello", B1="World", C1=42: returns "HelloWorld42"
+/// ```
 pub fn concat(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
 	if args.len() != 1 {
 		return Err(Box::new(LengthError("CONCAT only accepts 1 argument".to_string())));
@@ -13,7 +32,7 @@ pub fn concat(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Form
 	};
 
 	let FormulaAstInner::Range(range) = range else {
-		return Err(Box::new(TypeError("First argument to CONCAT must be a range".to_string(),)));
+		return Err(Box::new(TypeError("CONCAT requires a range as its argument".to_string())));
 	};
 
 	let mut count = String::from("");
@@ -39,7 +58,7 @@ pub fn concat(args: Vec<FormulaAstInner>, container: &dyn Container, exec: &Form
 		count += match &value {
 			FormulaAstInner::Str(f) => f,
 			_ => unreachable!()
-		};	
+		};
 	}
 
 	Ok(FormulaAstInner::Str(count))

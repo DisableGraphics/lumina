@@ -2,9 +2,27 @@ use std::{error::Error, time::{SystemTime, UNIX_EPOCH}};
 
 use crate::{container::Container, formula::exec::{FormulaAstInner, FormulaExecutor}};
 
-/// Returns the current date and time as a UNIX timestamp
+/// NOW - Returns the current date and time as a UNIX timestamp (seconds since epoch).
+///
+/// Takes no arguments. Returns the current system time as a floating-point number
+/// representing seconds since January 1, 1970 (UNIX epoch).
+///
+/// # Arguments
+/// * None (accepts 0 arguments)
+///
+/// # Returns
+/// * `Number` - Current UNIX timestamp as f64 (seconds since epoch)
+///
+/// # Errors
+/// * `LengthError` - If any arguments are provided (currently accepts exactly 0)
+///
+/// # Example
+/// ```text
+/// =NOW()  // Returns current timestamp, e.g., 1704067200.0
+/// =NOW() / 86400 + 25569  // Convert to Excel serial date format
+/// =TONUMBER(NOW())  // Returns numeric timestamp
+/// ```
 pub fn now(_args: Vec<FormulaAstInner>, _container: &dyn Container, _exec: &FormulaExecutor) -> Result<FormulaAstInner, Box<dyn Error>> {
-	// Oh no, this will start getting less precision in 285 million years!!! HORRIBLE!!!!
 	Ok(FormulaAstInner::Number(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as f64))
 }
 

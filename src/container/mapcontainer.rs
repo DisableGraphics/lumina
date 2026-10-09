@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::{Arc, RwLock}};
+use std::{collections::HashMap, sync::{Arc, RwLock, atomic::AtomicUsize}};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -22,13 +22,13 @@ impl InnerContainer {
 /// Container that uses a HashMap as a backing store
 pub struct MapContainer {
 	inner: Arc<RwLock<InnerContainer>>,
-	naxes: usize // READ ONLY TO MAKE LOOKUPS FASTER
+	naxes: AtomicUsize // READ ONLY TO MAKE LOOKUPS FASTER
 }
 
 impl MapContainer {
 	/// Create new MapContainer with some axes
 	pub fn new(axes: usize) -> Self {
-		Self { inner: Arc::new(RwLock::new(InnerContainer::new(axes))), naxes: axes }
+		Self { inner: Arc::new(RwLock::new(InnerContainer::new(axes))), naxes: axes.into() }
 	}
 }
 
@@ -41,8 +41,9 @@ impl Iterator for MapContainer {
 
 impl Container for MapContainer {
 	fn insert(&self, p: &PositionN, c: Cell) -> Result<(), RetError> {
-		if p.len() != self.naxes {
-			return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when inserting: {} (requested) is not {} (actual)", p.len(), self.naxes))));
+		let axes = self.naxes.load(std::sync::atomic::Ordering::Acquire);
+		if p.len() != axes {
+			return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when inserting: {} (requested) is not {} (actual)", p.len(), axes))));
 		}
 		let mut writer = self.inner.write().unwrap();
 		writer.cont.insert(p.clone(), c);
@@ -50,8 +51,9 @@ impl Container for MapContainer {
 	}
 
 	fn remove(&self, p: &PositionN) -> Result<(), RetError> {
-		if p.len() != self.naxes {
-			return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when deleting: {} (requested) is not {} (actual)", p.len(), self.naxes))));
+		let axes = self.naxes.load(std::sync::atomic::Ordering::Acquire);
+		if p.len() != axes {
+			return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when deleting: {} (requested) is not {} (actual)", p.len(), axes))));
 		}
 		let mut writer = self.inner.write().unwrap();
 		writer.cont.remove(p);
@@ -60,8 +62,9 @@ impl Container for MapContainer {
 	}
 
 	fn get_cell_at(&self, p: &PositionN) -> Result<Option<Cell>, RetError> {
-		if p.len() != self.naxes {
-			return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when getting cell: {} (requested) is not {} (actual)", p.len(), self.naxes))));
+		let axes = self.naxes.load(std::sync::atomic::Ordering::Acquire);
+		if p.len() != axes {
+			return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when getting cell: {} (requested) is not {} (actual)", p.len(), axes))));
 		}
 		let reader = self.inner.read().unwrap();
 		Ok(reader.cont.get(p).cloned())
@@ -69,11 +72,11 @@ impl Container for MapContainer {
 
 	fn get_cells_at(&self, p: &[PositionN]) -> Result<Vec<Cell>, RetError> {
 		let reader = self.inner.read().unwrap();
-
+		let axes = self.naxes.load(std::sync::atomic::Ordering::Acquire);
 		let mut ret = vec![];
 		for p in p {
-			if p.len() != self.naxes {
-				return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when getting cell: {} (requested) is not {} (actual)", p.len(), self.naxes))));
+			if p.len() != axes {
+				return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when getting cell: {} (requested) is not {} (actual)", p.len(), axes))));
 			}
 			if let Some(o) = reader.cont.get(p) {
 				ret.push(o.clone());
@@ -84,10 +87,11 @@ impl Container for MapContainer {
 		Ok(ret)
 	}
 
-	fn set_axes(&mut self, naxes: usize) -> Result<(), RetError> {
+	fn set_axes(&self, naxes: usize) -> Result<(), RetError> {
 		if naxes > 0 {
-			let prevaxes = self.naxes;
-			self.naxes = naxes;
+			let axes = self.naxes.load(std::sync::atomic::Ordering::Acquire);
+			let prevaxes = axes;
+			self.naxes.store(naxes, std::sync::atomic::Ordering::Release);
 			if naxes > prevaxes {
 				let mut data = self.inner.write().unwrap();
 				data.naxes = naxes;
@@ -113,14 +117,15 @@ impl Container for MapContainer {
 		}
 	}
 
-	fn remove_axis(&mut self, axispos: usize, retain_coord: Option<usize>) -> Result<(), RetError> {
-		if self.naxes <= 1 {
+	fn remove_axis(&self, axispos: usize, retain_coord: Option<usize>) -> Result<(), RetError> {
+		let axes = self.naxes.load(std::sync::atomic::Ordering::Acquire);
+		if axes <= 1 {
 			return Err(Box::new(InvalidAxesNumber("Can't have a container with 0 axes".to_string())));
 		}
-		if axispos >= self.naxes {
-			return Err(Box::new(OutOfBounds(format!("{axispos} is larger than maximum dimension: {}", self.naxes))));
+		if axispos >= axes {
+			return Err(Box::new(OutOfBounds(format!("{axispos} is larger than maximum dimension: {}", axes))));
 		}
-		self.naxes -= 1;
+		self.naxes.fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
 		let mut data = self.inner.write().unwrap();
 		data.naxes-=1;
 		let dcont = std::mem::take(&mut data.cont);
@@ -138,12 +143,13 @@ impl Container for MapContainer {
 	}
 	
 	fn get_axes(&self) -> usize {
-		self.naxes
+		self.naxes.load(std::sync::atomic::Ordering::Acquire)
 	}
 	
 	fn get_cells_at_axis(&self, p: &[super::AnyPosition]) -> Result<Vec<Cell>, RetError> {
-		if p.len() != self.naxes {
-			return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when getting cell: {} (requested) is not {} (actual)", p.len(), self.naxes))));
+		let axes = self.naxes.load(std::sync::atomic::Ordering::Acquire);
+		if p.len() != axes {
+			return Err(Box::new(CoordinateMismatch(format!("Wrong coordinate length when getting cell: {} (requested) is not {} (actual)", p.len(), axes))));
 		}
 		let reader = self.inner.read().unwrap();
 		let mut ret = vec![];
@@ -181,7 +187,7 @@ impl<'de> Deserialize<'de> for MapContainer {
 		let axes = inner.naxes;
 		Ok(Self {
 			inner: Arc::new(RwLock::new(inner)),
-			naxes: axes,
+			naxes: axes.into(),
 		})
 	}
 }
@@ -285,14 +291,14 @@ mod test {
 
 	#[test]
 	fn new_axes() {
-		let mut c = MapContainer::new(3);
+		let c = MapContainer::new(3);
 		assert!(c.set_axes(1).is_ok());
 		assert_eq!(c.get_axes(), 1);
 	}
 
 	#[test]
 	fn red_axes_content() {
-		let mut c = MapContainer::new(3);
+		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
 		cell.properties.inner = "a".to_string();
 		let dupe = cell.clone();
@@ -306,7 +312,7 @@ mod test {
 
 	#[test]
 	fn red_axes_retain() {
-		let mut c = MapContainer::new(3);
+		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
 		cell.properties.inner = "a".to_string();
 		let dupe = cell.clone();
@@ -321,7 +327,7 @@ mod test {
 
 	#[test]
 	fn more_axes_content() {
-		let mut c = MapContainer::new(3);
+		let c = MapContainer::new(3);
 		let mut cell = Cell::default();
 		cell.properties.inner = "a".to_string();
 		let dupe = cell.clone();
